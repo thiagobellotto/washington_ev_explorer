@@ -6,44 +6,33 @@ Explore Washington electric vehicle records by model year, manufacturer, and cou
 
 [![Build EV pipeline](https://github.com/thiagobellotto/electric-vehicles-dbt/actions/workflows/main.yml/badge.svg)](https://github.com/thiagobellotto/electric-vehicles-dbt/actions/workflows/main.yml)
 
-## Run locally
+## Run
 
-Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then run:
-
-```bash
-uv sync --locked
-uv run --locked python scripts/build.py
-uv run --locked streamlit run streamlit_app.py
-```
-
-The default build uses 12 synthetic records: 10 accepted and 2 excluded. To download and process the Washington dataset:
+Install Docker with Docker Compose, then run:
 
 ```bash
-uv run --locked python scripts/build.py --live
+docker compose up --build
 ```
 
-Python 3.12 and runtime dependencies are declared in `pyproject.toml`. Exact dependency versions are recorded in `uv.lock`.
+Open [localhost:8501](http://localhost:8501). The pipeline runs first; the dashboard starts after it completes.
 
-## Docker
+Python 3.12, uv, dbt, DuckDB, and Streamlit run inside the containers. The default build uses 12 synthetic records: 10 accepted and 2 excluded.
 
-Docker is an alternative to the local uv setup. CI runs uv directly.
-
-`Dockerfile-dbt` runs the pipeline and exports the results to `artifacts/`:
+Stop the containers:
 
 ```bash
-mkdir -p artifacts
-docker build -f Dockerfile-dbt -t ev-explorer .
-docker run --rm -v "$PWD/artifacts:/app/artifacts" ev-explorer
+docker compose down
 ```
 
-Run the dashboard in the same image:
+## Use Washington data
+
+Download the public dataset and rebuild the outputs:
 
 ```bash
-docker run --rm -p 8501:8501 -v "$PWD/artifacts:/app/artifacts" ev-explorer \
-  uv run --locked streamlit run streamlit_app.py --server.address 0.0.0.0
+docker compose run --rm pipeline uv run --locked python scripts/build.py --live
 ```
 
-Open [localhost:8501](http://localhost:8501). `Dockerfile-s3` provides a separate image for downloading source data and uploading raw Parquet to S3.
+Reload the dashboard to see the new data.
 
 ## Pipeline
 
@@ -57,9 +46,11 @@ flowchart LR
     F --> G[Streamlit]
 ```
 
-Each build writes to a separate run directory. After model execution and export succeed, `artifacts/current` points to the new run. Previous runs remain available until removed manually.
+`pipeline` downloads or loads the source, runs dbt, and exports the results. `dashboard` reads the outputs from the shared `artifacts/` directory.
 
-CI builds the sample and uploads the outputs, dbt manifest, and run results.
+Each build writes to a separate run directory. After model execution and export succeed, `artifacts/current` points to the new run. Outputs remain on the host after containers stop; older runs can be removed manually.
+
+CI builds the Docker images, runs the sample pipeline, waits for the dashboard health check, and uploads the outputs and dbt run artifacts.
 
 ## Metrics and data quality
 
@@ -75,33 +66,17 @@ Charts count source records within a snapshot. Model year describes the vehicle;
 
 Excluded rows remain in the quality summary. Invalid model year takes precedence over missing manufacturer. The source projection does not retain a vehicle identifier. Map coordinates are source reference points.
 
-## S3
+## Dependencies
 
-Upload a raw snapshot using the standard AWS credential chain:
+`pyproject.toml` declares runtime dependencies; `uv.lock` records exact versions. uv installs them when the Docker image builds.
 
-```bash
-uv run --locked python download_data.py --bucket YOUR_BUCKET
-```
-
-To run dbt against that object, configure AWS credentials and run from `dbt/`:
+Refresh the lockfile through Docker:
 
 ```bash
-cd dbt
-EV_INPUT_PATH=s3://YOUR_BUCKET/electric_vehicles.parquet \
-  uv run --locked dbt run --profiles-dir . --target s3
+docker compose run --rm --no-deps -v "$PWD:/workspace" -w /workspace pipeline uv lock --upgrade
 ```
 
-The dashboard reads local exports from `artifacts/current`.
-
-## Update dependencies
-
-```bash
-uv add PACKAGE
-uv lock --upgrade
-uv sync --locked
-```
-
-Commit `pyproject.toml` and `uv.lock` together.
+Commit dependency changes and rebuild with `docker compose up --build`.
 
 Source: [Washington Electric Vehicle Population Data](https://catalog.data.gov/dataset/electric-vehicle-population-data).
 

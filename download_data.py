@@ -29,14 +29,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--sample", type=Path)
     parser.add_argument("--output", type=Path, default=Path("artifacts/input.parquet"))
-    parser.add_argument("--bucket", help="Optionally upload the raw snapshot to S3")
     args = parser.parse_args()
     frame = prepare_data(pd.read_csv(args.sample) if args.sample else download_data())
     args.output.parent.mkdir(parents=True, exist_ok=True)
     frame.to_parquet(args.output, index=False)
-    if args.bucket:
-        import boto3
-        boto3.client("s3").upload_file(str(args.output), args.bucket, "electric_vehicles.parquet")
     print(json.dumps({"source_rows": len(frame), "output": str(args.output)}))
 
 

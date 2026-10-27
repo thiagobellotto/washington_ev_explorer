@@ -7,17 +7,13 @@ on:
 permissions:
   contents: read
 jobs:
-  sample-build:
+  docker-build:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          version: '0.13.5'
-          enable-cache: true
-      - run: uv sync --locked
-      - run: uv run --locked python scripts/build.py
+      - run: docker compose build
+      - run: docker compose up --wait --wait-timeout 120
       - uses: actions/upload-artifact@v4
         with:
           name: sample-output
@@ -25,3 +21,5 @@ jobs:
             artifacts/
             dbt/target/manifest.json
             dbt/target/run_results.json
+      - if: always()
+        run: docker compose down

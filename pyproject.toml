@@ -1,11 +1,10 @@
 [project]
 name = "washington-ev-explorer"
 version = "2.0.0"
-description = "A validated Washington EV analytics pipeline and interactive explorer"
+description = "Washington EV analytics pipeline and interactive explorer"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    "boto3>=1.43.119",
     "dbt-core>=1.12.6",
     "dbt-duckdb>=1.11.1",
     "duckdb>=2.0.0",
