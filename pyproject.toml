@@ -1,0 +1,22 @@
+[project]
+name = "washington-ev-explorer"
+version = "2.0.0"
+description = "A validated Washington EV analytics pipeline and interactive explorer"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "boto3>=1.34,<2",
+    "pandas>=2.2,<3",
+    "pyarrow>=18,<24",
+    "requests>=2.32,<3",
+    "dbt-core>=1.10.5,<2",
+    "dbt-duckdb>=1.10,<2",
+    "duckdb>=1.4,<3",
+    "streamlit>=1.50,<2",
+]
+
+[dependency-groups]
+dev = ["pytest>=8,<9"]
+
+[tool.uv]
+package = false

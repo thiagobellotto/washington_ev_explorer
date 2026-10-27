@@ -20,7 +20,7 @@ The source projection omits vehicle IDs. We count records without claiming dedup
 
 ## Reproducibility and dependencies
 
-The synthetic fixture is small, deterministic, and visibly labeled. CI builds it without secrets or live-source availability. `requirements.txt` declares direct dependency bounds; `requirements.lock` pins the tested transitive environment for installs, CI, and Docker. The lock was generated on Python 3.13 and CI checks Python 3.12. Refresh it deliberately and rerun validation when upgrading. Source HTTP requests have timeouts and fail on unsuccessful status codes. No automatic retry policy or source-snapshot scheduling is implemented.
+The synthetic fixture is small, deterministic, and visibly labeled. CI builds it without secrets or live-source availability. `pyproject.toml` declares direct runtime dependencies and a separate development group. `uv.lock` provides a universal lock for Python 3.12 and 3.13; `.python-version` selects 3.12 by default. Local commands, CI, and Docker use uv with `--locked` to reject stale project metadata. Docker omits development dependencies. CI and Docker pin uv 0.13.5. Refresh dependencies deliberately and rerun validation when upgrading. Source HTTP requests have timeouts and fail on unsuccessful status codes. No automatic retry policy or source-snapshot scheduling is implemented.
 
 ## Deployment status
 

@@ -10,7 +10,7 @@ st.title("⚡ Washington EV Explorer")
 st.caption("Vehicle population • Model-year composition • Transparent data quality")
 artifacts = Path(__file__).resolve().parent / "artifacts"
 if not (artifacts / "current").exists():
-    st.info("Build the demo first: python scripts/build.py")
+    st.info("Build the demo first: uv run --locked python scripts/build.py")
     st.stop()
 run = artifacts / (artifacts / "current").read_text().strip()
 metadata = json.loads((run / "metadata.json").read_text())

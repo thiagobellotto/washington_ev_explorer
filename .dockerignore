@@ -6,3 +6,5 @@ __pycache__
 dbt/target
 dbt/logs
 .streamlit/secrets.toml
+
+.uv-cache

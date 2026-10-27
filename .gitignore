@@ -11,3 +11,5 @@ logs/
 artifacts/
 *.duckdb
 *.duckdb.wal
+
+.uv-cache/
