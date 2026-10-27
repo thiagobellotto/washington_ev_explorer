@@ -1,4 +1,3 @@
-"""Acquire a local or Washington source snapshot without silently dropping rows."""
 import argparse
 import json
 from pathlib import Path
@@ -27,7 +26,7 @@ def prepare_data(frame):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser()
     parser.add_argument("--sample", type=Path)
     parser.add_argument("--output", type=Path, default=Path("artifacts/input.parquet"))
     parser.add_argument("--bucket", help="Optionally upload the raw snapshot to S3")

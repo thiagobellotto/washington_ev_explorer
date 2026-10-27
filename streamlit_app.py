@@ -1,4 +1,3 @@
-"""Washington EV Explorer: transparent metrics from a validated build."""
 import json
 from pathlib import Path
 

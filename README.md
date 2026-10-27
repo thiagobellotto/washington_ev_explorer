@@ -1,14 +1,14 @@
 # ⚡ Washington EV Explorer
 
-A reproducible analytics pipeline that turns vehicle records into an explorable snapshot, with explicit quality rules and staged publication.
+Explore Washington electric vehicle records by model year, manufacturer, and county.
 
-**Python → Parquet → dbt + DuckDB → CSV artifacts → Streamlit**
+**Python → Parquet → dbt + DuckDB → CSV → Streamlit**
 
 [![Build EV pipeline](https://github.com/thiagobellotto/electric-vehicles-dbt/actions/workflows/main.yml/badge.svg)](https://github.com/thiagobellotto/electric-vehicles-dbt/actions/workflows/main.yml)
 
-## Try it locally
+## Run locally
 
-Requires [uv](https://docs.astral.sh/uv/getting-started/installation/). Python 3.12 is declared in `pyproject.toml`; uv can install it automatically. No AWS account or credentials are needed for the demo.
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then run:
 
 ```bash
 uv sync --locked
@@ -16,93 +16,93 @@ uv run --locked python scripts/build.py
 uv run --locked streamlit run streamlit_app.py
 ```
 
-The checked-in sample contains **12 synthetic records**: 10 accepted and 2 excluded. It demonstrates missing coordinates, invalid model years, missing manufacturer names, and unknown ranges. It provides no evidence about actual Washington EV market shares.
-
-To analyze the current public source instead:
+The default build uses 12 synthetic records: 10 accepted and 2 excluded. To download and process the Washington dataset:
 
 ```bash
 uv run --locked python scripts/build.py --live
 ```
 
-This downloads the full Washington dataset; internet access and a longer build are required. The dashboard labels the dataset and build time. Build time is not the source's observation date.
+Python 3.12 and runtime dependencies are declared in `pyproject.toml`. Exact dependency versions are recorded in `uv.lock`.
 
-## Dependency management
+## Docker
 
-`pyproject.toml` declares runtime dependencies and Python 3.12. `uv.lock` pins the resolved versions. Local setup, CI, and Docker use `uv sync --locked`; commands use `uv run --locked`, so stale project metadata fails rather than silently changing the lockfile. No virtual-environment activation is needed.
+Docker is an alternative to the local uv setup. CI runs uv directly.
+
+`Dockerfile-dbt` runs the pipeline and exports the results to `artifacts/`:
 
 ```bash
-uv add PACKAGE                 # Add a runtime dependency and update the lock
-uv lock --upgrade              # Refresh locked versions within declared bounds
-uv sync --locked
-uv run --locked python scripts/build.py
+mkdir -p artifacts
+docker build -f Dockerfile-dbt -t ev-explorer .
+docker run --rm -v "$PWD/artifacts:/app/artifacts" ev-explorer
 ```
 
-Commit `pyproject.toml` and `uv.lock` together after dependency changes. CI and Docker pin uv 0.13.5.
+Run the dashboard in the same image:
 
-## Questions this project answers
+```bash
+docker run --rm -p 8501:8501 -v "$PWD/artifacts:/app/artifacts" ev-explorer \
+  uv run --locked streamlit run streamlit_app.py --server.address 0.0.0.0
+```
 
-- Which model years and manufacturers are represented in a source snapshot?
-- How are vehicle records distributed across counties?
-- How many records were excluded, and why?
+Open [localhost:8501](http://localhost:8501). `Dockerfile-s3` provides a separate image for downloading source data and uploading raw Parquet to S3.
 
-**Model year is not registration year.** The charts describe snapshot composition, not annual purchases, historical adoption, or population-adjusted adoption rates. No live market findings are claimed until a real source run is reviewed.
-
-## Architecture
+## Pipeline
 
 ```mermaid
 flowchart LR
-    A[WA public source / synthetic fixture] --> B[Schema validation]
-    B --> C[Raw Parquet snapshot]
-    C --> D[dbt raw: preserve records]
-    D --> E[dbt silver: types and quality status]
-    E --> F[dbt golden: analytical aggregates]
-    F --> G[Export CSV artifacts]
-    G --> H[Immutable local run + atomic current pointer]
-    H --> I[Streamlit explorer]
+    A[Washington source / sample] --> B[Raw Parquet]
+    B --> C[dbt raw]
+    C --> D[dbt silver: types and quality status]
+    D --> E[dbt golden: aggregates]
+    E --> F[CSV exports]
+    F --> G[Streamlit]
 ```
 
-The pipeline stages every run in a temporary directory. Only a successful `dbt run` and complete export can update `artifacts/current`. The dashboard resolves that pointer once per rerun, so it reads one consistent version. Prior runs are retained locally; storage cleanup is manual.
+Each build writes to a separate run directory. After model execution and export succeed, `artifacts/current` points to the new run. Previous runs remain available until removed manually.
 
-## Data quality rules
+CI builds the sample and uploads the outputs, dbt manifest, and run results.
 
-| Rule | Behavior |
+## Metrics and data quality
+
+Charts count source records within a snapshot. Model year describes the vehicle; it does not measure registrations or purchases during that year. County totals are not adjusted for population.
+
+| Field | Handling |
 | --- | --- |
-| Unexpected source schema | Fail with the missing column names |
-| Missing/invalid model year, outside 1900 through next year | Retain source row; exclude from analytical totals with reason |
-| Missing manufacturer | Retain source row; exclude with reason |
-| Missing county | Include in an Unknown county aggregate |
-| Missing coordinates or electric range | Retain vehicle in counts |
-| Zero/negative/missing electric range | Label unknown / not reported; do not infer usable range |
-| Failed rebuild | Leave the previously published run available |
+| Model year | Exclude missing or invalid values, or years outside 1900 through next year |
+| Manufacturer | Exclude missing values |
+| County | Group missing values as Unknown |
+| Location | Keep the record in counts; omit unusable coordinates from the map |
+| Electric range | Treat zero, negative, or missing values as unknown / not reported |
 
-This projection does not retain a stable vehicle identifier, so uniqueness is not asserted. Coordinates are source reference locations; they are not precise vehicle positions. Multiple exclusion conditions use a documented precedence: invalid model year first, then missing manufacturer.
+Excluded rows remain in the quality summary. Invalid model year takes precedence over missing manufacturer. The source projection does not retain a vehicle identifier. Map coordinates are source reference points.
 
-## Inspect model documentation
+## S3
 
-```bash
-cd dbt
-# Uses paths relative to this directory after a successful sample/live build:
-EV_INPUT_PATH="../artifacts/$(cat ../artifacts/current)/input.parquet" \
-EV_DB_PATH="../artifacts/$(cat ../artifacts/current)/ev.duckdb" uv run --locked dbt docs generate --profiles-dir .
-uv run --locked dbt docs serve --profiles-dir .
-```
-
-PR CI uses the deterministic sample, runs `dbt run`, and uploads the sample output plus dbt manifest and run results. No AWS secrets are used in PR builds.
-
-## Optional S3 path
-
-Raw snapshot upload remains available using the standard AWS credential chain:
+Upload a raw snapshot using the standard AWS credential chain:
 
 ```bash
 uv run --locked python download_data.py --bucket YOUR_BUCKET
 ```
 
-For direct dbt builds against that object, run from `dbt/` with `EV_INPUT_PATH=s3://YOUR_BUCKET/electric_vehicles.parquet`, `--target s3`, and AWS credentials in your environment, using `uv run --locked dbt run --profiles-dir . --target s3`. The local build command is the supported dashboard publishing path. This release replaces the previous push-to-main S3 publishing workflow with credential-free builds; it does **not** deploy or refresh an existing S3-backed dashboard.
+To run dbt against that object, configure AWS credentials and run from `dbt/`:
 
-## Engineering decisions and next steps
+```bash
+cd dbt
+EV_INPUT_PATH=s3://YOUR_BUCKET/electric_vehicles.parquet \
+  uv run --locked dbt run --profiles-dir . --target s3
+```
 
-DuckDB keeps this single-source workload reproducible without a warehouse account. dbt supplies model lineage and descriptions. Publication uses a local single-writer workflow; concurrent builds and automatic retention are not supported.
+The dashboard reads local exports from `artifacts/current`.
 
-Next milestones: review a full live-source run, publish a demo, and retain dated source snapshots for changes over time.
+## Update dependencies
 
-Original project by [Thiago Bellotto](https://www.linkedin.com/in/thiago-bellotto/). Source: [Washington Electric Vehicle Population Data](https://catalog.data.gov/dataset/electric-vehicle-population-data).
+```bash
+uv add PACKAGE
+uv lock --upgrade
+uv sync --locked
+```
+
+Commit `pyproject.toml` and `uv.lock` together.
+
+Source: [Washington Electric Vehicle Population Data](https://catalog.data.gov/dataset/electric-vehicle-population-data).
+
+Developed by [Thiago Bellotto](https://www.linkedin.com/in/thiago-bellotto/).

@@ -1,4 +1,3 @@
-"""Build into an isolated directory; publish only after dbt and export succeed."""
 import argparse
 from datetime import datetime, timezone
 import json
@@ -37,7 +36,6 @@ def build(sample=True):
                     "duration_seconds": round(time.monotonic() - started, 2),
                     "source_url": None if sample else "https://data.wa.gov/api/views/f6w7-q2d2/rows.json?accessType=DOWNLOAD"}
         (stage / "metadata.json").write_text(json.dumps(metadata, indent=2))
-        # Immutable run directory plus atomic pointer prevents readers seeing mixed runs.
         run = artifacts / ("run-" + str(time.time_ns()))
         shutil.copytree(stage, run)
         pointer = artifacts / "current.tmp"
@@ -48,7 +46,7 @@ def build(sample=True):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser()
     parser.add_argument("--live", action="store_true", help="Download the current WA source instead of the synthetic fixture")
     args = parser.parse_args()
     build(sample=not args.live)
