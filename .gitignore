@@ -12,3 +12,6 @@ artifacts/
 *.duckdb.wal
 
 .uv-cache/
+
+data/*
+!data/.gitkeep

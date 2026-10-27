@@ -7,3 +7,5 @@ dbt/logs
 .streamlit/secrets.toml
 
 .uv-cache
+
+data

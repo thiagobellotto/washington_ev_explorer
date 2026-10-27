@@ -1,6 +1,7 @@
 import argparse
 import json
 from pathlib import Path
+import tempfile
 
 import pandas as pd
 import requests
@@ -27,13 +28,24 @@ def prepare_data(frame):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--sample", type=Path)
-    parser.add_argument("--output", type=Path, default=Path("artifacts/input.parquet"))
+    parser.add_argument("--output", type=Path, default=Path("data/electric_vehicles.parquet"))
+    parser.add_argument("--refresh", action="store_true")
     args = parser.parse_args()
-    frame = prepare_data(pd.read_csv(args.sample) if args.sample else download_data())
+    if args.output.exists() and not args.refresh:
+        print(json.dumps({"status": "cached", "output": str(args.output)}))
+        return
+    print("Downloading Washington EV data...", flush=True)
+    frame = prepare_data(download_data())
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    frame.to_parquet(args.output, index=False)
-    print(json.dumps({"source_rows": len(frame), "output": str(args.output)}))
+    with tempfile.NamedTemporaryFile(dir=args.output.parent, suffix=".parquet", delete=False) as file:
+        temporary = Path(file.name)
+    try:
+        frame.to_parquet(temporary, index=False)
+        temporary.chmod(0o644)
+        temporary.replace(args.output)
+    finally:
+        temporary.unlink(missing_ok=True)
+    print(json.dumps({"status": "downloaded", "source_rows": len(frame), "output": str(args.output)}))
 
 
 if __name__ == "__main__":

@@ -16,7 +16,7 @@ docker compose up --build
 
 Open [localhost:8501](http://localhost:8501). The pipeline runs first; the dashboard starts after it completes.
 
-Python 3.12, uv, dbt, DuckDB, and Streamlit run inside the containers. The default build uses 12 synthetic records: 10 accepted and 2 excluded.
+Python 3.12, uv, dbt, DuckDB, and Streamlit run inside the containers. The first run downloads the Washington dataset into `data/electric_vehicles.parquet`. Later runs reuse that file.
 
 Stop the containers:
 
@@ -24,12 +24,12 @@ Stop the containers:
 docker compose down
 ```
 
-## Use Washington data
+## Refresh the data
 
-Download the public dataset and rebuild the outputs:
+Download a fresh copy and rebuild the outputs:
 
 ```bash
-docker compose run --rm pipeline uv run --locked python scripts/build.py --live
+docker compose run --rm pipeline uv run --locked python scripts/build.py --refresh
 ```
 
 Reload the dashboard to see the new data.
@@ -38,7 +38,7 @@ Reload the dashboard to see the new data.
 
 ```mermaid
 flowchart LR
-    A[Washington source / sample] --> B[Raw Parquet]
+    A[Washington source] --> B[Raw Parquet]
     B --> C[dbt raw]
     C --> D[dbt silver: types and quality status]
     D --> E[dbt golden: aggregates]
@@ -46,11 +46,18 @@ flowchart LR
     F --> G[Streamlit]
 ```
 
-`pipeline` downloads or loads the source, runs dbt, and exports the results. `dashboard` reads the outputs from the shared `artifacts/` directory.
+`pipeline` downloads or reuses the local source, runs dbt, and exports the results. `dashboard` reads the outputs from the shared `artifacts/` directory.
+
+Both folders are beside the Dockerfile and mounted into the containers:
+
+- `data/`: cached source Parquet.
+- `artifacts/`: DuckDB databases, CSV exports, and build metadata.
+
+Downloaded data and generated outputs are excluded from Git and Docker image builds.
 
 Each build writes to a separate run directory. After model execution and export succeed, `artifacts/current` points to the new run. Outputs remain on the host after containers stop; older runs can be removed manually.
 
-On pushes to `main` that change `Dockerfile` or `compose.yaml`, CI builds the images, runs the sample pipeline, waits for the dashboard health check, and uploads the outputs and dbt run artifacts.
+On pushes to `main` that change `Dockerfile` or `compose.yaml`, CI builds the images, runs the pipeline, waits for the dashboard health check, and uploads the outputs and dbt run artifacts.
 
 ## Metrics and data quality
 

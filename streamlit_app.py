@@ -9,13 +9,11 @@ st.title("⚡ Washington EV Explorer")
 st.caption("Vehicle population • Model-year composition • Transparent data quality")
 artifacts = Path(__file__).resolve().parent / "artifacts"
 if not (artifacts / "current").exists():
-    st.info("Build the demo first: uv run --locked python scripts/build.py")
+    st.info("Start the pipeline: docker compose up --build")
     st.stop()
 run = artifacts / (artifacts / "current").read_text().strip()
 metadata = json.loads((run / "metadata.json").read_text())
-if metadata["dataset"] == "synthetic sample":
-    st.warning("SYNTHETIC DEMO — these invented records demonstrate the pipeline; they are not Washington statistics.")
-st.caption(f"Dataset: {metadata['dataset']} · Built (UTC): {metadata['built_at']} · Build: {metadata['duration_seconds']} seconds")
+st.caption(f"Downloaded (UTC): {metadata['downloaded_at']} · Built (UTC): {metadata['built_at']} · Build: {metadata['duration_seconds']} seconds")
 vehicles = pd.read_csv(run / "enriched_electric_vehicles.csv")
 quality = pd.read_csv(run / "data_quality.csv")
 accepted = vehicles[vehicles.quality_status == "accepted"].copy()
