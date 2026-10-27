@@ -38,6 +38,7 @@ def build(sample=True):
         (stage / "metadata.json").write_text(json.dumps(metadata, indent=2))
         run = artifacts / ("run-" + str(time.time_ns()))
         shutil.copytree(stage, run)
+        run.chmod(0o755)
         pointer = artifacts / "current.tmp"
         pointer.write_text(run.name)
         pointer.replace(artifacts / "current")
