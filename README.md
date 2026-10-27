@@ -61,6 +61,8 @@ On pushes to `main` that change `Dockerfile` or `compose.yaml`, CI builds the im
 
 ## Metrics and data quality
 
+The dashboard defaults to Washington addresses. Choose All source records to include out-of-state addresses. The Overview, Geography, and Data & quality views share the same filters; source-quality totals describe the full dataset.
+
 Charts count source records within a snapshot. Model year describes the vehicle; it does not measure registrations or purchases during that year. County totals are not adjusted for population.
 
 | Field | Handling |
