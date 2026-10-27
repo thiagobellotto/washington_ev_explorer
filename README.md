@@ -1,16 +1,14 @@
 # ⚡ Washington EV Explorer
 
-A reproducible analytics pipeline that turns vehicle records into an explorable snapshot, with explicit quality rules and tested publication.
+A reproducible analytics pipeline that turns vehicle records into an explorable snapshot, with explicit quality rules and validated publication.
 
 **Python → Parquet → dbt + DuckDB → validated CSV artifacts → Streamlit**
 
 [![Validate EV pipeline](https://github.com/thiagobellotto/electric-vehicles-dbt/actions/workflows/main.yml/badge.svg)](https://github.com/thiagobellotto/electric-vehicles-dbt/actions/workflows/main.yml)
 
-![Dashboard preview using synthetic sample records](docs/dashboard.png)
-
 ## Try it locally
 
-Requires [uv](https://docs.astral.sh/uv/getting-started/installation/). Python 3.12 is selected by `.python-version`; uv can install it automatically. Python 3.13 is also supported. No AWS account or credentials are needed for the demo.
+Requires [uv](https://docs.astral.sh/uv/getting-started/installation/). Python 3.12 is declared in `pyproject.toml`; uv can install it automatically. No AWS account or credentials are needed for the demo.
 
 ```bash
 uv sync --locked
@@ -30,14 +28,13 @@ This downloads the full Washington dataset; internet access and a longer build a
 
 ## Dependency management
 
-`pyproject.toml` declares runtime dependencies and a separate `dev` group for pytest. `uv.lock` pins the resolved dependencies across supported Python versions. Local setup and CI use `uv sync --locked`; Docker excludes development dependencies with `--no-dev`. Commands use `uv run --locked`, so stale project metadata fails rather than silently changing the lockfile. No virtual-environment activation is needed.
+`pyproject.toml` declares runtime dependencies and Python 3.12. `uv.lock` pins the resolved versions. Local setup, CI, and Docker use `uv sync --locked`; commands use `uv run --locked`, so stale project metadata fails rather than silently changing the lockfile. No virtual-environment activation is needed.
 
 ```bash
 uv add PACKAGE                 # Add a runtime dependency and update the lock
-uv add --dev PACKAGE           # Add a development tool
-uv lock --upgrade              # Deliberately refresh locked versions
+uv lock --upgrade              # Refresh locked versions within declared bounds
 uv sync --locked
-uv run --locked python -m pytest -q
+uv run --locked python scripts/build.py
 ```
 
 Commit `pyproject.toml` and `uv.lock` together after dependency changes. CI and Docker pin uv 0.13.5.
@@ -84,7 +81,6 @@ This projection does not retain a stable vehicle identifier, so uniqueness is no
 ## Validate and inspect
 
 ```bash
-uv run --locked python -m pytest -q
 cd dbt
 # Uses paths relative to this directory after a successful sample/live build:
 EV_INPUT_PATH="../artifacts/$(cat ../artifacts/current)/input.parquet" \
@@ -92,7 +88,7 @@ EV_DB_PATH="../artifacts/$(cat ../artifacts/current)/ev.duckdb" uv run --locked 
 uv run --locked dbt docs serve --profiles-dir .
 ```
 
-PR CI uses the deterministic sample, runs Python integration tests and `dbt build`, and uploads the validated sample plus dbt manifest and run results. No AWS secrets are used in PR validation. The integration test also simulates a failed dbt subprocess and verifies that the published pointer stays unchanged.
+PR CI uses the deterministic sample, runs `dbt build` with its nine data checks, and uploads the validated sample plus dbt manifest and run results. No AWS secrets are used in PR validation.
 
 ## Optional S3 path
 
@@ -106,6 +102,8 @@ For direct dbt builds against that object, run from `dbt/` with `EV_INPUT_PATH=s
 
 ## Engineering decisions and next steps
 
-See [architecture decisions](docs/architecture.md) for tradeoffs and limitations. Next milestones: review a full live-source run, publish a demo, retain dated source snapshots for changes over time.
+DuckDB keeps this single-source workload reproducible without a warehouse account. dbt supplies model lineage, descriptions, and data checks. Publication uses a local single-writer workflow; concurrent builds and automatic retention are not supported.
+
+Next milestones: review a full live-source run, publish a demo, and retain dated source snapshots for changes over time.
 
 Original project by [Thiago Bellotto](https://www.linkedin.com/in/thiago-bellotto/). Source: [Washington Electric Vehicle Population Data](https://catalog.data.gov/dataset/electric-vehicle-population-data).

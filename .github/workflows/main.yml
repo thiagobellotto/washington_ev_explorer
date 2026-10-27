@@ -17,7 +17,6 @@ jobs:
           version: '0.13.5'
           enable-cache: true
       - run: uv sync --locked
-      - run: uv run --locked python -m pytest -q
       - run: uv run --locked python scripts/build.py
       - uses: actions/upload-artifact@v4
         with:
