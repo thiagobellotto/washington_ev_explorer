@@ -27,7 +27,7 @@ def build(sample=True):
             command += ["--sample", str(ROOT / "data/sample.csv")]
         subprocess.run(command, check=True)
         environment = dict(os.environ, EV_INPUT_PATH=str(source), EV_DB_PATH=str(stage / "ev.duckdb"))
-        subprocess.run(["dbt", "build", "--profiles-dir", "."], cwd=ROOT / "dbt", env=environment, check=True)
+        subprocess.run(["dbt", "run", "--profiles-dir", "."], cwd=ROOT / "dbt", env=environment, check=True)
         tables = ["yearly_trend", "make_trend_by_model", "county_summary", "data_quality", "enriched_electric_vehicles"]
         with duckdb.connect(str(stage / "ev.duckdb"), read_only=True) as connection:
             for table in tables:

@@ -1,4 +1,4 @@
-name: Validate EV pipeline
+name: Build EV pipeline
 on:
   pull_request:
   push:
@@ -20,7 +20,7 @@ jobs:
       - run: uv run --locked python scripts/build.py
       - uses: actions/upload-artifact@v4
         with:
-          name: validated-sample
+          name: sample-output
           path: |
             artifacts/
             dbt/target/manifest.json

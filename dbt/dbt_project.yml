@@ -3,7 +3,6 @@ version: '2.0.0'
 config-version: 2
 profile: electric-vehicles
 model-paths: [models]
-test-paths: [tests]
 models:
   electric_vehicle_dbt:
     +materialized: table
