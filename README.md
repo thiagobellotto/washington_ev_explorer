@@ -50,7 +50,7 @@ flowchart LR
 
 Each build writes to a separate run directory. After model execution and export succeed, `artifacts/current` points to the new run. Outputs remain on the host after containers stop; older runs can be removed manually.
 
-CI builds the Docker images, runs the sample pipeline, waits for the dashboard health check, and uploads the outputs and dbt run artifacts.
+On pushes to `main` that change `Dockerfile` or `compose.yaml`, CI builds the images, runs the sample pipeline, waits for the dashboard health check, and uploads the outputs and dbt run artifacts.
 
 ## Metrics and data quality
 

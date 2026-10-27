@@ -1,9 +1,10 @@
 name: Build EV pipeline
 on:
-  pull_request:
   push:
     branches: [main]
-  workflow_dispatch:
+    paths:
+      - Dockerfile
+      - compose.yaml
 permissions:
   contents: read
 jobs:
