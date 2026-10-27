@@ -1,130 +1,65 @@
-import streamlit as st
+"""Washington EV Explorer: transparent metrics from a validated build."""
+import json
+from pathlib import Path
+
 import pandas as pd
-import boto3
-from io import BytesIO
+import streamlit as st
 
-
-# Function to load data from S3
-def load_data_from_s3(bucket, key, access_key, secret_key):
-    """Load a DataFrame from a CSV file on S3."""
-    session = boto3.Session(
-        aws_access_key_id=access_key, aws_secret_access_key=secret_key
-    )
-    s3 = session.client("s3")
-    response = s3.get_object(Bucket=bucket, Key=key)
-    content = response["Body"].read()
-    df = pd.read_csv(BytesIO(content))
-    return df
-
-
-## Set up constants for S3 access
-BUCKET_NAME = "electric-vehicle-bucket"
-AWS_ACCESS_KEY_ID = st.secrets["AWS_ACCESS_KEY_ID"]
-AWS_SECRET_ACCESS_KEY = st.secrets["AWS_SECRET_ACCESS_KEY"]
-
-st.set_page_config(
-    page_title="Electric Vehicles Data - WA",
-    page_icon=":electric_plug:",
-    initial_sidebar_state="auto",
-)
-
-st.title("Electric Vehicles Data - Trends in Washington")
-
-## Inject custom CSS to set the width of the sidebar
-st.markdown(
-    """
-    <style>
-        section[data-testid="stSidebar"] {
-            width: 600px !important; # Set the width to your desired value
-        }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
+st.set_page_config(page_title="Washington EV Explorer", page_icon="⚡", layout="wide")
+st.title("⚡ Washington EV Explorer")
+st.caption("Vehicle population • Model-year composition • Transparent data quality")
+artifacts = Path(__file__).resolve().parent / "artifacts"
+if not (artifacts / "current").exists():
+    st.info("Build the demo first: python scripts/build.py")
+    st.stop()
+run = artifacts / (artifacts / "current").read_text().strip()
+metadata = json.loads((run / "metadata.json").read_text())
+if metadata["dataset"] == "synthetic sample":
+    st.warning("SYNTHETIC DEMO — these invented records demonstrate the pipeline; they are not Washington statistics.")
+st.caption(f"Dataset: {metadata['dataset']} · Built (UTC): {metadata['built_at']} · Build: {metadata['duration_seconds']} seconds")
+vehicles = pd.read_csv(run / "enriched_electric_vehicles.csv")
+quality = pd.read_csv(run / "data_quality.csv")
+accepted = vehicles[vehicles.quality_status == "accepted"].copy()
+accepted["county"] = accepted["county"].fillna("Unknown")
 with st.sidebar:
-    st.header("About This App")
-    st.text(
-        """
-        This application provides simple analysis of trends in 
-        electric vehicle usage across various model years and makes
-        in Washington. The data is sourced from Data.gov.
-        
-        Key Features:
-        - Yearly trends of electric vehicle counts.
-        - Breakdown by make.
-        - Interactive selection to filter data by make.
-
-        Technologies Used:
-        - CI/CD with GitHub Actions.
-        - Analysis with dbt and DuckDB.
-        - Data visualizations using Streamlit.
-        - Data stored in S3 objects from a dbt pipeline.
-        
-        Developed by Thiago Bellotto.
-    """
-    )
-
-## Display a line chart to show trends
-st.subheader("Yearly Electric Vehicle Trends")
-
-## Load the data
-yearly_trend = load_data_from_s3(
-    BUCKET_NAME, "yearly_trend.csv", AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
-)
-
-make_trend = load_data_from_s3(
-    BUCKET_NAME, "make_trend_by_model.csv", AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
-)
-
-st.line_chart(
-    yearly_trend.set_index("model_year"),
-    use_container_width=True,
-    x_label="Year",
-    y_label="Number of Electric Vehicles",
-)
-
-## Divider
-st.markdown("---")
-
-## Dynamic selectbox for filtering by make
-make = st.selectbox(
-    "Select a make to show yearly count per model:", sorted(make_trend["make"].unique())
-)
-filtered_data = make_trend[make_trend["make"] == make]
-st.dataframe(filtered_data, width=10000, hide_index=True)
-
-footer = """<style>
-a:link , a:visited{
-color: white;
-background-color: transparent;
-text-decoration: underline;
-}
-a:hover,  a:active {
-color: red;
-background-color: transparent;
-text-decoration: underline;
-}
-.footer {
-position: fixed;
-left: 0;
-bottom: 0;
-width: 100%;
-background-color: transparent;
-color: white;
-text-align: center;
-}
-</style>
-<div class="footer">
-<p>Developed by <a style='display: block; color: white; text-align: center;' href="https://www.linkedin.com/in/thiago-bellotto/" target="_blank">Thiago Bellotto</a></p>
-</div>
-"""
-st.markdown(footer, unsafe_allow_html=True)
-
-st.markdown(
-    """ <style>
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-</style> """,
-    unsafe_allow_html=True,
-)
+    st.header("Explore the snapshot")
+    makes = st.multiselect("Manufacturer", sorted(accepted.make.dropna().unique()))
+    counties = st.multiselect("County", sorted(accepted.county.dropna().unique()))
+    st.markdown("[Source dataset](https://catalog.data.gov/dataset/electric-vehicle-population-data)")
+    st.caption("Model year is a vehicle attribute. It does not tell us when the vehicle was registered or purchased.")
+filtered = accepted
+if makes:
+    filtered = filtered[filtered.make.isin(makes)]
+if counties:
+    filtered = filtered[filtered.county.isin(counties)]
+a, b, c = st.columns(3)
+a.metric("Vehicles in selection", f"{len(filtered):,}")
+b.metric("Manufacturers", filtered.make.nunique())
+c.metric("Counties represented", filtered.county.nunique())
+if filtered.empty:
+    st.info("No vehicles match these filters. Clear a manufacturer or county selection to explore again.")
+if not filtered.empty:
+    st.subheader("Which model years are represented?")
+    st.caption("Counts within this snapshot, grouped by model year. This is not annual EV adoption.")
+    st.bar_chart(filtered.groupby("model_year").size().rename("Vehicles"))
+    left, right = st.columns(2)
+    with left:
+        st.subheader("Manufacturer mix")
+        st.bar_chart(filtered.groupby("make").size().sort_values(ascending=False).rename("Vehicles"))
+    with right:
+        st.subheader("County distribution")
+        st.bar_chart(filtered.groupby("county").size().sort_values(ascending=False).rename("Vehicles"))
+    st.subheader("Vehicle locations")
+    coordinates = filtered[["latitude", "longitude"]].dropna()
+    coordinates = coordinates[coordinates.latitude.between(-90, 90) & coordinates.longitude.between(-180, 180)]
+    if len(coordinates):
+        st.map(coordinates)
+    st.caption(f"{len(coordinates):,} of {len(filtered):,} selected records have usable coordinates. Locations are source-provided reference points, not exact vehicle positions.")
+with st.expander("Data quality and metric definitions", expanded=True):
+    st.write(f"Source: {len(vehicles):,} rows · Accepted: {len(accepted):,} · Excluded: {len(vehicles) - len(accepted):,}")
+    st.dataframe(quality, hide_index=True, width="stretch")
+    st.markdown("Acceptance requires a model year from 1900 through next year and a manufacturer. Missing location or range does not remove a vehicle. Zero or missing electric range is treated as unknown/not reported. Counts are source records; this projection cannot prove vehicle uniqueness. County totals are counts, not population-adjusted adoption rates.")
+    st.caption("Quality totals refer to the whole source snapshot and do not change with filters.")
+with st.expander("Explore and download the selection"):
+    st.dataframe(filtered, hide_index=True, width="stretch")
+    st.download_button("Download selection", filtered.to_csv(index=False), "ev-selection.csv", "text/csv")

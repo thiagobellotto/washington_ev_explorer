@@ -1,19 +1,6 @@
-FROM python:3.9-slim
-
-# Install Python libraries
-RUN pip install dbt-core dbt-duckdb
-
-# Install AWS CLI to handle S3 uploads
-RUN apt-get update && apt-get install -y awscli
-
-# Create a directory for the database file
-RUN mkdir -p /dbt
-
-# Set the working directory in the container
-WORKDIR /dbt
-
-# Copy the dbt project files into the container
-COPY dbt /dbt
-
-# Set the default command to run dbt run when the container launches
-CMD ["dbt", "run"]
+FROM python:3.12-slim
+WORKDIR /app
+COPY requirements.lock .
+RUN pip install --no-cache-dir -r requirements.lock
+COPY . .
+CMD ["python", "scripts/build.py"]

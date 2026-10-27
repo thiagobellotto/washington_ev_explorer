@@ -1,16 +1,6 @@
-FROM python:3.9-slim
-
-# Install Python libraries
-RUN pip install boto3 pandas pyarrow requests openpyxl
-
-# Create a directory for the database file
-RUN mkdir -p /app/data
-
-# Copy your Python script
-COPY download_data.py /app/download_data.py
-
-# Set the working directory
+FROM python:3.12-slim
 WORKDIR /app
-
-# Command to run your script
-CMD ["python", "download_data.py"]
+COPY requirements.lock .
+RUN pip install --no-cache-dir -r requirements.lock
+COPY download_data.py .
+ENTRYPOINT ["python", "download_data.py"]

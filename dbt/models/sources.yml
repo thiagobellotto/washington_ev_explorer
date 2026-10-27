@@ -1,8 +1,8 @@
 version: 2
-
 sources:
   - name: external_source
     meta:
-      external_location: "s3://electric-vehicle-bucket/{name}.parquet"
+      external_location: "{{ env_var('EV_INPUT_PATH', '../artifacts/input.parquet') }}"
     tables:
       - name: electric_vehicles
+        description: One row per source vehicle record; the analytical projection does not retain a unique vehicle identifier.
