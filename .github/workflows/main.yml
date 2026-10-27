@@ -1,30 +1,26 @@
-name: Workflow for dbt & DuckDB
-
+name: Build EV pipeline
 on:
   push:
-    branches:
-      - main
-
+    branches: [main]
+    paths:
+      - Dockerfile
+      - compose.yaml
+permissions:
+  contents: read
 jobs:
-  save_data_to_s3:
+  docker-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Build the Docker image
-        run: docker build . --file Dockerfile-s3 --tag save-data:latest
-
-      - name: Run Docker container
-        run: docker run  -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} save-data:latest
-
-  dbt_run:
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    needs: save_data_to_s3
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build DBT Container
-        run: docker build -t dbt-docker:latest -f Dockerfile-dbt .
-
-      - name: Run dbt and Export Files to S3
-        run: docker run -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} dbt-docker:latest sh -c "dbt run && aws s3 cp . s3://electric-vehicle-bucket/ --recursive --exclude '*' --include '*.csv' --region us-east-1"
+      - run: docker compose build
+      - run: docker compose up --wait --wait-timeout 300
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ev-output
+          path: |
+            artifacts/
+            dbt/target/manifest.json
+            dbt/target/run_results.json
+      - if: always()
+        run: docker compose down

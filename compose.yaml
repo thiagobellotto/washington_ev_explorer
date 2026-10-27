@@ -1,0 +1,24 @@
+services:
+  pipeline:
+    build: .
+    volumes:
+      - ./data:/app/data
+      - ./artifacts:/app/artifacts
+      - ./dbt/target:/app/dbt/target
+
+  dashboard:
+    build: .
+    command: ["uv", "run", "--locked", "streamlit", "run", "streamlit_app.py", "--server.address", "0.0.0.0"]
+    depends_on:
+      pipeline:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:${EV_DASHBOARD_PORT:-8501}:8501"
+    volumes:
+      - ./artifacts:/app/artifacts:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s

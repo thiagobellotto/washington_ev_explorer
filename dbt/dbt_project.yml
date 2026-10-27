@@ -1,9 +1,9 @@
-name: "eletric_vehicle_dbt"
-version: "1.0.0"
-
-profile: "electric-vehicles"
-model-paths: ["models"]
-
-clean-targets:
-  - "dbt_packages"
-  - "logs"
+name: electric_vehicle_dbt
+version: '2.0.0'
+config-version: 2
+profile: electric-vehicles
+model-paths: [models]
+models:
+  electric_vehicle_dbt:
+    +materialized: table
+clean-targets: [target, dbt_packages]

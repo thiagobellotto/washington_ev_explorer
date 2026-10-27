@@ -1,0 +1,8 @@
+version: 2
+models:
+  - name: enriched_electric_vehicles
+    description: Typed source rows with explicit acceptance status. Missing coordinates do not exclude vehicles.
+  - name: yearly_trend
+    description: Accepted vehicle records grouped by model year; not a historical registration series.
+  - name: county_summary
+    description: Accepted vehicle records grouped by county, with missing counties labeled Unknown.
